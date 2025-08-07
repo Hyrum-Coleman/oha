@@ -164,6 +164,8 @@ Options:
           AWS session token
       --aws-sigv4 <AWS_SIGV4>
           AWS SigV4 signing params (format: aws:amz:region:service)
+      --keycloak-auth <KEYCLOAK_AUTH>
+          Keycloak authentication (format: realm_url|client_id|username|password or realm_url|client_id|client_secret|username|password)
   -x <PROXY>
           HTTP proxy
       --proxy-http-version <PROXY_HTTP_VERSION>
@@ -201,8 +203,6 @@ Options:
           Note: if used several times for the same host:port:target_host:target_port, a random choice is made
       --disable-color
           Disable the color scheme.
-      --unix-socket <UNIX_SOCKET>
-          Connect to a unix socket instead of the domain in the URL. Only for non-HTTPS URLs.
       --stats-success-breakdown
           Include a response status code successful or not successful breakdown for the time histogram and distribution statistics
       --db-url <DB_URL>
