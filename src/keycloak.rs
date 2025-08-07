@@ -78,7 +78,6 @@ impl KeycloakAuth {
     }
 
     /// Authenticate using the Resource Owner Password Credentials Grant
-    /// This is suitable for testing scenarios where you have the username/password
     pub async fn authenticate(&self) -> Result<(), ClientError> {
         let token_url = format!("{}/protocol/openid-connect/token", self.config.realm_url);
 
