@@ -659,7 +659,7 @@ impl Client {
 
         // Apply AWS SigV4 if configured
         if let Some(aws_config) = &self.aws_config {
-            aws_config.sign_request(self.method.as_str(), &mut headers, url, bytes)?
+            aws_config.sign_request(self.method.as_str(), &mut headers, url, &bytes)?
         }
 
         if use_proxy {

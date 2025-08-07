@@ -34,7 +34,7 @@ impl AwsSignatureConfig {
         method: &str,
         headers: &mut HeaderMap,
         url: &Url,
-        body: Option<Bytes>,
+        body: &Option<Bytes>,
     ) -> Result<(), ClientError> {
         let datetime = chrono::Utc::now();
 
