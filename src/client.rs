@@ -22,6 +22,7 @@ use url::{ParseError, Url};
 use crate::{
     ConnectToEntry,
     aws_auth::AwsSignatureConfig,
+    keycloak::KeycloakAuth,
     pcg64si::Pcg64Si,
     url_generator::{UrlGenerator, UrlGeneratorError},
 };
@@ -183,6 +184,10 @@ pub enum ClientError {
     UrlParse(#[from] ParseError),
     #[error("AWS SigV4 signature error: {0}")]
     SigV4(&'static str),
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+    #[error("")]
+    AuthenticationError(String),
     #[cfg(feature = "http3")]
     #[error(transparent)]
     Http3(#[from] crate::client_h3::Http3Error),
@@ -202,6 +207,7 @@ pub struct Client {
     pub disable_keepalive: bool,
     pub proxy_url: Option<Url>,
     pub aws_config: Option<AwsSignatureConfig>,
+    pub keycloak_config: Option<KeycloakAuth>,
     #[cfg(unix)]
     pub unix_socket: Option<std::path::PathBuf>,
     #[cfg(feature = "vsock")]
@@ -232,6 +238,7 @@ impl Default for Client {
             disable_keepalive: false,
             proxy_url: None,
             aws_config: None,
+            keycloak_config: None,
             #[cfg(unix)]
             unix_socket: None,
             #[cfg(feature = "vsock")]
@@ -631,7 +638,7 @@ impl Client {
     }
 
     #[inline]
-    pub(crate) fn request(&self, url: &Url) -> Result<http::Request<Full<Bytes>>, ClientError> {
+    pub(crate) async fn request(&self, url: &Url) -> Result<http::Request<Full<Bytes>>, ClientError> {
         let use_proxy = self.proxy_url.is_some() && url.scheme() == "http";
 
         let mut builder = http::Request::builder()
@@ -660,6 +667,11 @@ impl Client {
         // Apply AWS SigV4 if configured
         if let Some(aws_config) = &self.aws_config {
             aws_config.sign_request(self.method.as_str(), &mut headers, url, &bytes)?
+        }
+
+        // Apply Keycloak authentication if configured
+        if let Some(keycloak_config) = &self.keycloak_config {
+            keycloak_config.sign_request(self.method.as_str(), &mut headers, url, &bytes).await?
         }
 
         if use_proxy {
@@ -707,7 +719,7 @@ impl Client {
                 let dialup = std::time::Instant::now();
                 connection_time = Some(ConnectionTime { dns_lookup, dialup });
             }
-            let request = self.request(&url)?;
+            let request = self.request(&url).await?;
             match send_request.send_request(request).await {
                 Ok(res) => {
                     let (parts, mut stream) = res.into_parts();
@@ -851,7 +863,7 @@ impl Client {
             let mut first_byte: Option<std::time::Instant> = None;
             let connection_time: Option<ConnectionTime> = None;
 
-            let request = self.request(&url)?;
+            let request = self.request(&url).await?;
             match client_state.send_request.send_request(request).await {
                 Ok(res) => {
                     let (parts, mut stream) = res.into_parts();
@@ -932,7 +944,7 @@ impl Client {
             send_request = stream;
         }
 
-        let mut request = self.request(&url)?;
+        let mut request = self.request(&url).await?;
         if url.authority() != base_url.authority() {
             request.headers_mut().insert(
                 http::header::HOST,
@@ -1044,7 +1056,7 @@ pub async fn work_debug<W: Write>(w: &mut W, client: Arc<Client>) -> Result<(), 
     let url = client.url_generator.generate(&mut rng)?;
     writeln!(w, "URL: {url}")?;
 
-    let request = client.request(&url)?;
+    let request = client.request(&url).await?;
 
     writeln!(w, "{request:#?}")?;
 

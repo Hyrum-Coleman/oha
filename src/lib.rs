@@ -35,6 +35,7 @@ mod client_h3;
 mod curl_compat;
 mod db;
 mod histogram;
+mod keycloak;
 mod monitor;
 mod pcg64si;
 mod printer;
@@ -45,6 +46,8 @@ mod url_generator;
 
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
+
+use crate::keycloak::{KeycloakAuth, parse_keycloak_config};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -181,6 +184,11 @@ Note: If qps is specified, burst will be ignored",
         long = "aws-sigv4"
     )]
     aws_sigv4: Option<String>,
+    #[arg(
+        help = "Keycloak authentication (format: realm_url|client_id|username|password or realm_url|client_id|client_secret|username|password)",
+        long = "keycloak-auth"
+    )]
+    keycloak_auth: Option<String>,
     #[arg(help = "HTTP proxy", short = 'x')]
     proxy: Option<Url>,
     #[arg(
@@ -380,6 +388,26 @@ pub async fn run(mut opts: Opts) -> anyhow::Result<()> {
             )?)
         } else {
             anyhow::bail!("AWS credentials (--auth) required when using --aws-sigv4");
+        }
+    } else {
+        None
+    };
+
+    // Parse Keycloak authentication configuration
+    let keycloak_config = if let Some(keycloak_params) = opts.keycloak_auth {
+        let config = parse_keycloak_config(&keycloak_params)?;
+        let keycloak_auth = KeycloakAuth::new(config);
+        
+        // Perform initial authentication to get the token
+        println!("Authenticating with Keycloak...");
+        match keycloak_auth.initial_auth().await {
+            Ok(_token) => {
+                println!("Successfully authenticated with Keycloak. Token obtained.");
+                Some(keycloak_auth)
+            }
+            Err(e) => {
+                anyhow::bail!("Failed to authenticate with Keycloak: {}", e);
+            }
         }
     } else {
         None
@@ -616,6 +644,7 @@ pub async fn run(mut opts: Opts) -> anyhow::Result<()> {
 
     let client = Arc::new(client::Client {
         aws_config,
+        keycloak_config,
         http_version,
         proxy_http_version,
         url_generator,
