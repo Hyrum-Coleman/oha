@@ -17,15 +17,15 @@ This program is written in Rust and powered by [tokio](https://github.com/tokio-
 
 This program is built on stable Rust, with both `make` and `cmake` prerequisites to install via cargo.
 
-    cargo install oha
+    cargo install --git https://github.com/Hyrum-Coleman/oha.git oha
 
 You can optionally build oha against [native-tls](https://github.com/sfackler/rust-native-tls) instead of [rustls](https://github.com/rustls/rustls).
 
-    cargo install --no-default-features --features native-tls oha
+    cargo install --git https://github.com/Hyrum-Coleman/oha.git --no-default-features --features native-tls oha
 
 You can enable VSOCK support by enabling `vsock` feature.
 
-    cargo install --features vsock oha
+    cargo install --git https://github.com/Hyrum-Coleman/oha.git --features vsock oha
 
 You can enable experimental HTTP3 support by enabling the `http3` feature. This uses the [H3](https://github.com/hyperium/h3/r) library by the developers of Hyper.
 It will remain experimental as long as H3 is experimental. It currently depends on using `rustls` for TLS.
